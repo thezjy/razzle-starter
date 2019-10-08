@@ -1,14 +1,13 @@
 import { ApolloProvider } from '@apollo/react-hooks'
-import express from 'express'
-import fetch from 'node-fetch'
-import React from 'react'
-import { renderToString } from 'react-dom/server'
-import { StaticRouter } from 'react-router-dom'
-import { default as BrowserApp } from './App'
 import { getDataFromTree } from '@apollo/react-ssr'
 import { InMemoryCache } from 'apollo-cache-inmemory'
 import { ApolloClient } from 'apollo-client'
 import { createHttpLink } from 'apollo-link-http'
+import express from 'express'
+import fetch from 'node-fetch'
+import React from 'react'
+import { StaticRouter } from 'react-router-dom'
+import { default as BrowserApp } from './App'
 
 const assets = require(process.env.RAZZLE_ASSETS_MANIFEST)
 
@@ -17,7 +16,7 @@ const server = express()
 server
   .disable('x-powered-by')
   .use(express.static(process.env.RAZZLE_PUBLIC_DIR))
-  .get('/*', (req, res) => {
+  .get('/*', async (req, res) => {
     const client = new ApolloClient({
       ssrMode: true,
       link: createHttpLink({
@@ -36,16 +35,11 @@ server
       </ApolloProvider>
     )
 
-    getDataFromTree(App).then(() => {
-      const content = renderToString(App)
-      console.info('content', content)
-      const initialState = client.extract()
-      console.info('initialState', initialState)
+    const content = await getDataFromTree(App)
+    const state = client.extract()
 
-      const markup = <Html content={content} state={initialState} />
-
-      res.status(200)
-      res.send(`<!doctype html>
+    res.status(200)
+    res.send(`<!doctype html>
     <html lang="">
     <head>
         <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -60,26 +54,13 @@ server
         }
     </head>
     <body>
-          <div id="root">${markup}</div>
+          <div id="root">${content}</div>
+          <script>
+          window.__APOLLO_STATE__=${JSON.stringify(state).replace(/</g, '\\u003c')};
+          </script>
     </body>
 </html>`)
-      res.end()
-    })
+    res.end()
   })
-
-function Html({ content, state }) {
-  return (
-    <html>
-      <body>
-        <div id="root" dangerouslySetInnerHTML={{ __html: content }} />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.__APOLLO_STATE__=${JSON.stringify(state).replace(/</g, '\\u003c')};`,
-          }}
-        />
-      </body>
-    </html>
-  )
-}
 
 export default server

@@ -6,10 +6,11 @@ import Home from './Home'
 import { gql } from 'apollo-boost'
 
 const EXCHANGE_RATES = gql`
-  {
-    rates(currency: "USD") {
+  query Rates($getName: Boolean!, $currency: String!) {
+    rates(currency: $currency) {
       currency
       rate
+      name @include(if: $getName)
     }
   }
 `
@@ -28,24 +29,39 @@ const Hi = () => {
   return (
     <>
       <Rates />
-      <Rates1 />
+      {/* <Rates1 /> */}
     </>
   )
 }
 
 const Rates = () => {
-  const { loading, error, data } = useQuery(EXCHANGE_RATES)
+  const { loading, error, data, refetch } = useQuery(EXCHANGE_RATES, {
+    variables: { getName: false, currency: 'USD' },
+  })
+  if (typeof window === 'undefined') {
+    console.log('server')
+  } else {
+    console.log('client')
+  }
+  console.log(loading)
 
   if (loading) return <p>Loading...</p>
   if (error) return <p>Error :(</p>
 
-  return data.rates.map(({ currency, rate }) => (
-    <div key={currency}>
-      <p>
-        {currency}: {rate}
-      </p>
-    </div>
-  ))
+  return (
+    <>
+      <button onClick={() => refetch({ getName: true, currency: 'CNY' })}>refetch</button>
+      {data.rates.map(({ currency, rate, name }) => (
+        <div key={currency}>
+          <div onClick={() => console.log(`You clicked ${name}!`)}>
+            {name && <h3>{name}</h3>}
+
+            <p>{`${currency}: ${rate}`}</p>
+          </div>
+        </div>
+      ))}
+    </>
+  )
 }
 
 const Rates1 = () => {
